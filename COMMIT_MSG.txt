@@ -1,0 +1,45 @@
+shipguard 0.1.0 — the guards, extracted
+
+Four pieces pulled out of a production SaaS after each caught something real: the review
+gate, the test runner that names its skips, the pre-push build hook, and the secret scan.
+
+The design rule the whole package is built on, and the reason it was worth extracting:
+
+    The first thing you test about a guard is not whether it catches the failure you had
+    in mind. It is whether it can report success while blind.
+
+That is not aspirational — it is where the tests start:
+  · test/verdict.test.mjs opens with seven REJECTIONS THAT CONTAIN THEIR OWN APPROVAL WORD
+    («ماينشرش» contains «ينشر»; "does not ship" contains "ship"). Flip the ordering in the
+    parser and a reviewer who said no is read as clearance.
+  · test/review-gate.test.mjs builds a real throwaway git repo, not mocks — two of the
+    gate's three historical holes were in the interaction with git itself.
+
+── And it found three bugs in itself before the first commit ──
+
+1. The glob matcher silently protected nothing. `src/money/**` compiled to a pattern
+   matching a DIRECTORY and no file inside it, because a chained .replace() turned the
+   `**` placeholder into an optional trailing group. Every `**` rule was decorative.
+   The test caught it on the first run; reading the code had not. Rewritten as a tokeniser.
+
+2. A crash exited 0. Running shipguard against shipguard threw a stack trace and returned
+   success, because the exception escaped before run() produced a number — so a deploy
+   script would have carried on past a gate that never ran. Precisely the failure this
+   package exists to prevent, arriving on day one. Any uncaught exception is now exit 3.
+
+3. A repo with no commits exploded with git's `fatal: ambiguous argument 'HEAD'` — and
+   `init` then `check` before the first commit is the first thing anyone will do.
+
+All three are now assertions, not comments.
+
+── What it is not ──
+Not a linter (it runs yours), not a CI service (it decides on exit codes), and not a
+substitute for someone reading the diff — the gate enforces that a review HAPPENED, it
+cannot make the review good.
+
+English-first; Arabic ships in i18n/ar.json. The verdict parser understands BOTH regardless
+of locale, deliberately: a reviewer writing in their own language silently invalidating
+their own review is the bug that motivated the extraction. It cost four bypassed deploys
+in one night before anyone noticed.
+
+3 suites · 55 assertions · zero dependencies · Node >= 18.

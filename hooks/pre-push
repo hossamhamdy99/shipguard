@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# shipguard pre-push hook
+#
+# Runs the full production build before anything leaves this machine.
+#
+# ── Why the FULL build and not just typecheck ────────────────────────────────────
+# Most hosting builds install NO dev dependencies. A file that imports a dev-only package
+# typechecks fine locally and fails there — after the deploy has started, on a machine you
+# are watching a log scroll on. The only way to find that here is to do what the server does.
+#
+# ── Why the exit code and not the output ─────────────────────────────────────────
+# "Compiled successfully" prints BEFORE the steps that come after it. A grep for it reports
+# success on a build that failed thirty seconds later. That shipped once.
+set -euo pipefail
+
+if [ -n "${SHIPGUARD_SKIP:-}" ]; then
+  echo "⚠️  SHIPGUARD_SKIP is set — pre-push checks did NOT run."
+  echo "   Say so in the commit message. A bypass nobody can see is the same as no hook."
+  exit 0
+fi
+
+BUILD_CMD="${SHIPGUARD_BUILD:-npm run build}"
+
+echo "▸ pre-push: making sure it builds before it leaves this machine…"
+if ! OUT=$($BUILD_CMD 2>&1); then
+  echo "❌ build failed — push stopped. Last lines:"
+  echo "$OUT" | tail -30
+  exit 1
+fi
+echo "✅ builds."
+
+# Secrets last: cheap, and a leaked key is the one mistake you cannot take back by reverting.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -x "$HERE/../node_modules/shipguard/hooks/secret-scan.sh" ]; then
+  "$HERE/../node_modules/shipguard/hooks/secret-scan.sh" || exit 1
+elif [ -x "$HERE/secret-scan.sh" ]; then
+  "$HERE/secret-scan.sh" || exit 1
+fi

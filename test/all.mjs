@@ -1,0 +1,15 @@
+/**
+ * shipguard's own suite, run through shipguard's own runner.
+ *
+ * Dogfooding is not a slogan here — it is the only reason the skipped-suite reporting is
+ * honest. A runner that hides its own skips would hide yours.
+ */
+import { runTests } from "../src/run-tests.mjs";
+
+const { ok } = runTests([
+  ["verdict",     "node test/verdict.test.mjs",     "can the verdict reader approve while blind?"],
+  ["review-gate", "node test/review-gate.test.mjs", "built against a real throwaway git repo, not mocks"],
+  ["cli",         "node test/cli.test.mjs",         "init is idempotent and check decides on exit codes"],
+]);
+
+process.exit(ok ? 0 : 1);

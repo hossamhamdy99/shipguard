@@ -1,0 +1,54 @@
+{
+  "$comment": [
+    "`risky` is the whole configuration decision. Everything else has a sane default.",
+    "",
+    "Put a path here when a mistake in it reads as a plausible number instead of an error.",
+    "That is the test — not 'is it important'. A broken button is obvious the moment someone",
+    "looks. A permission check that silently passes, a total that is quietly 8,000 instead of",
+    "23,600, a status nothing handles — those look fine and stay wrong for months.",
+    "",
+    "Keep the list short. A list that covers everything blocks every deploy, and a gate that",
+    "always blocks is a gate people learn to bypass."
+  ],
+
+  "risky": [
+    { "match": "**/checkout/**", "why": "money" },
+    { "match": "**/payment*/**", "why": "money" },
+    { "match": "**/permissions.*", "why": "who can see what" },
+    { "match": "**/auth/**", "why": "who can see what" },
+    { "match": "migrations/**", "why": "schema — a mistake here is not revertable by reverting" },
+    { "match": "test/**", "why": "gut one and the suite still reports a pass" },
+    { "match": "scripts/**", "why": "the guards themselves, and whatever decides if they run" }
+  ],
+
+  "reviewsDir": "REVIEWS",
+
+  "$comment_verdicts": [
+    "Which languages the verdict line may be written in. Defaults to ALL built-in ones,",
+    "deliberately: a reviewer writing in their own language must never silently invalidate",
+    "their own review. That exact bug cost four bypassed deploys in one night.",
+    "Add your own with `extra`: { labels: [...], no: '<regex>', yes: '<regex>' } —",
+    "and add assertions to your test suite, because rejection is matched BEFORE approval",
+    "and a vocabulary whose rejection contains its own approval word will read 'no' as 'yes'."
+  ],
+  "verdicts": {},
+
+  "$comment_tests": [
+    "[name, command, why, options]. `optional: true` means missing prerequisites count as a",
+    "SKIP rather than a failure — and skips are named in the summary, every time. 'All green'",
+    "with two suites that never ran is a lie in a pleasant colour."
+  ],
+  "tests": [
+    ["unit", "npm run test:unit", "the fast ones"],
+    ["e2e", "npm run test:e2e", "needs credentials", { "optional": true }]
+  ],
+
+  "$comment_commands": [
+    "Anything else that must pass. The exit code decides — never a string in the output."
+  ],
+  "commands": {
+    "typecheck": "npx tsc --noEmit",
+    "lint": "npx eslint .",
+    "build": "npm run build"
+  }
+}

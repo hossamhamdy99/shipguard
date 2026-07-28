@@ -1,0 +1,21 @@
+{
+  "name": "shipguard",
+  "version": "0.1.0",
+  "description": "Checks that can actually stop a deploy — and that are tested for whether they can pass while blind.",
+  "type": "module",
+  "bin": { "shipguard": "bin/shipguard.mjs" },
+  "exports": {
+    ".": "./src/index.mjs",
+    "./verdict": "./src/verdict.mjs",
+    "./review-gate": "./src/review-gate.mjs",
+    "./run-tests": "./src/run-tests.mjs"
+  },
+  "files": ["bin", "src", "hooks", "i18n", "shipguard.config.example.json", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "node test/all.mjs"
+  },
+  "engines": { "node": ">=18" },
+  "keywords": ["deploy", "guard", "code-review", "ci", "pre-push", "release-safety"],
+  "license": "MIT",
+  "dependencies": {}
+}

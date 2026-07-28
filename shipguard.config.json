@@ -1,0 +1,30 @@
+{
+  "risky": [
+    {
+      "match": "src/**",
+      "why": "the guard's own logic \u2014 a mistake here disarms every project using it"
+    },
+    {
+      "match": "test/**",
+      "why": "gut one and the suite still reports a pass"
+    },
+    {
+      "match": "bin/**",
+      "why": "what decides whether any of it runs"
+    },
+    {
+      "match": "hooks/**",
+      "why": "the last thing between a key and a public repo"
+    }
+  ],
+  "reviewsDir": "REVIEWS",
+  "verdicts": {},
+  "tests": [
+    [
+      "all",
+      "node test/all.mjs",
+      "shipguard's own suite"
+    ]
+  ],
+  "commands": {}
+}
