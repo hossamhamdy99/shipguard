@@ -19,15 +19,32 @@ if [ -n "${SHIPGUARD_SKIP:-}" ]; then
   exit 0
 fi
 
-BUILD_CMD="${SHIPGUARD_BUILD:-npm run build}"
-
-echo "▸ pre-push: making sure it builds before it leaves this machine…"
-if ! OUT=$($BUILD_CMD 2>&1); then
-  echo "❌ build failed — push stopped. Last lines:"
-  echo "$OUT" | tail -30
-  exit 1
+# ── Is there a build to run? ──────────────────────────────────────────────────────
+# Not every project has one. shipguard itself does not — and this hook, installed by
+# shipguard's own `init`, blocked the very first push of shipguard's own repository with
+# `npm error Missing script: "build"`. Found by dogfooding, five minutes after writing it.
+#
+# A hook that fails on a project shape its author did not picture is a hook that gets
+# deleted, and deleting it takes the secret scan with it.
+BUILD_CMD="${SHIPGUARD_BUILD:-}"
+if [ -z "$BUILD_CMD" ]; then
+  if [ -f package.json ] && node -e 'process.exit(require("./package.json").scripts?.build?0:1)' 2>/dev/null; then
+    BUILD_CMD="npm run build"
+  fi
 fi
-echo "✅ builds."
+
+if [ -z "$BUILD_CMD" ]; then
+  echo "· pre-push: no build script — skipping the build check."
+  echo "  (set SHIPGUARD_BUILD if your build runs some other way)"
+else
+  echo "▸ pre-push: making sure it builds before it leaves this machine…"
+  if ! OUT=$($BUILD_CMD 2>&1); then
+    echo "❌ build failed — push stopped. Last lines:"
+    echo "$OUT" | tail -30
+    exit 1
+  fi
+  echo "✅ builds."
+fi
 
 # Secrets last: cheap, and a leaked key is the one mistake you cannot take back by reverting.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
