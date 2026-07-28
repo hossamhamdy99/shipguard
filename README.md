@@ -6,8 +6,9 @@ A check nobody runs is not a check. A check that reports green because it is bro
 than no check, because it teaches you that green means safe.
 
 ```bash
-npm i -D shipguard
-npx shipguard init
+# not on npm yet — the name `shipguard` is taken by an unrelated package
+git clone https://github.com/hossamhamdy99/shipguard
+node shipguard/bin/shipguard.mjs init      # run this inside YOUR project
 ```
 
 ---
@@ -105,9 +106,15 @@ A review is a markdown file in `REVIEWS/` containing the commit it read and a ve
 Copy that sha with `git rev-parse --short=12 <commit>` — never retype it. It names the commit
 the reviewer **read**, not the commit that fixed the findings.
 
-The verdict may be written in any configured language. English and Arabic ship built in, and
-**both are understood by default** — a reviewer writing in their own language must never
-silently invalidate their own review.
+The verdict may be written in any configured language. English and Arabic ship built in
+(`src/verdict.mjs`), and **both are understood by default** — a reviewer writing in their own
+language must never silently invalidate their own review.
+
+⚠️ To be precise about what is and is not translated: the **verdict vocabulary** is
+multilingual and tested in both languages. shipguard's own **output messages** are English
+only. There were `i18n/*.json` files here that looked like the messages were translatable;
+nothing read them, so they were deleted rather than left to imply a feature that did not
+exist. Adding real message translation is open work.
 
 ### Use
 
