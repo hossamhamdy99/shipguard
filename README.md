@@ -54,6 +54,12 @@ Not aspirational — it is in this repo's own tests:
   so every rule silently protected nothing. The test caught it in the first run. Reading it
   had not.
 
+And one more, in the other direction: the first commit message here claimed a third bug —
+"a crash exited 0" — that **did not exist**. It came from reading `$?` after a pipeline,
+where it reports `tail`'s status rather than node's. The claim is corrected in the git log
+rather than quietly deleted, because a package that tells you to prove things by running
+them should not carry a false claim about itself.
+
 ---
 
 ## What it does

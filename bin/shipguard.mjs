@@ -117,12 +117,20 @@ function review() {
   return 0;   // reporting only — never blocks
 }
 
-// ⚠️ **An unexpected exception must be a FAILURE, not a silent pass.**
-//    shipguard's first run against itself crashed with a stack trace and `exit=0` — the
-//    exception escaped before `run()` returned a number, so the shell reported the last
-//    successful command. A deploy script would have carried straight on.
-//    Which is precisely the thing this package exists to prevent: a check that says fine
-//    while being broken. It found it in itself on day one.
+// Turn an unexpected exception into one clear sentence instead of a stack trace.
+//
+// ⚠️ This is a MESSAGE improvement, not a fix. The first version of this comment claimed a
+//    crash was exiting 0 and that a deploy script would walk past it. That was wrong, and
+//    the error was in the measurement, not the code: the crash was observed through
+//    `node … | tail ; echo $?`, and `$?` after a pipeline is the exit status of the LAST
+//    command — `tail` — not of node. Node exits 1 on an uncaught exception, as it always has.
+//
+//        node x.mjs > /dev/null 2>&1 ; echo $?             →  1
+//        node x.mjs 2>&1 | tail -1 > /dev/null ; echo $?    →  0     ← what was read
+//
+//    Left in because a stack trace is a bad way to tell someone their config is broken.
+//    Written down because a package that tells you to prove things by running them should
+//    not carry a false claim about itself. (See CORRECTION in the git log.)
 process.on("uncaughtException", (e) => {
   console.error(`\n❌ shipguard crashed — treating that as a FAILURE, not a pass.\n   ${e.message}\n`);
   process.exit(3);

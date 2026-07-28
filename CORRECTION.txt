@@ -1,0 +1,32 @@
+fix: correct a false claim in the previous commit message
+
+The 0.1.0 message listed three bugs shipguard found in itself. **The second one was not a
+bug — it was a mistake in my measurement**, and correcting it here rather than quietly is
+the same rule this package enforces on everyone else.
+
+The claim was:
+
+> A crash exited 0. Running shipguard against shipguard threw a stack trace and returned
+> success […] a deploy script would have carried straight on.
+
+What actually happened: the crash was observed with
+
+    node bin/shipguard.mjs check 2>&1 | tail -8 ; echo "exit=$?"
+
+`$?` after a pipeline is the exit status of the LAST command in it — `tail` — not of node.
+Node exits 1 on an uncaught exception, as it always has. Measured both ways:
+
+    node x.mjs > /dev/null 2>&1 ; echo $?        →  1
+    node x.mjs 2>&1 | tail -1 > /dev/null ; echo $?  →  0     ← what I read
+
+So no deploy script was ever going to walk past a crashed gate, and nothing in the project
+this was extracted from is affected. The `uncaughtException` handler stays, because turning
+a stack trace into one clear sentence is worth having, but it is a message improvement and
+not a fix — the file now says so.
+
+Bugs 1 (the glob matcher protecting nothing) and 3 (no commits yet) were real, are fixed,
+and have assertions.
+
+The irony is the point: a tool whose entire argument is "prove it by running something"
+had a false claim in its own first commit message, produced by reading a number from the
+wrong place. Which is also the reason its README says a guard cannot make a review good.
