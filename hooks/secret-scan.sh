@@ -6,9 +6,6 @@
 # disables every hook including the ones that matter.
 set -uo pipefail
 
-FILES=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null || true)
-[ -z "$FILES" ] && exit 0
-
 # Patterns are deliberately few and specific. A scanner that cries wolf gets bypassed, and a
 # bypassed scanner is worse than none — you believe you are covered.
 PATTERNS=(
@@ -22,7 +19,12 @@ PATTERNS=(
 )
 
 FOUND=0
-for f in $FILES; do
+# ── Read the staged paths NUL-delimited, one per iteration ──────────────────────────
+# `for f in $(git diff --cached --name-only)` split the list on whitespace, so a staged
+# `my key.txt` became `my` + `key.txt`: the real file — the one that might hold the key — was
+# never scanned, while a space-free copy was caught (and, from the split, scanned twice).
+# Found by running it against a file named with a space, not by reading the loop.
+while IFS= read -r -d '' f; do
   [ -f "$f" ] || continue
   case "$f" in
     *.lock|*.min.js|*.map|*.png|*.jpg|*.jpeg|*.gif|*.pdf|*.woff*) continue ;;
@@ -30,7 +32,12 @@ for f in $FILES; do
     *.example|*.example.*|*.sample|*.sample.*) continue ;;
   esac
   for p in "${PATTERNS[@]}"; do
-    if HIT=$(git show ":$f" 2>/dev/null | grep -nE "$p" | head -3); then
+    # `grep -nE -e "$p"`, NOT `grep -nE "$p"`. The `-----BEGIN … PRIVATE KEY-----` pattern
+    # begins with dashes, and without `-e` grep read them as options: it errored to stderr
+    # and the pattern never ran, so a staged private key passed while the scanner said clean.
+    # The one secret you can least afford to leak was the one pattern that never executed.
+    # `-e` tells grep the next argument is a pattern, dashes and all. Found by running it.
+    if HIT=$(git show ":$f" 2>/dev/null | grep -nE -e "$p" | head -3); then
       [ -z "$HIT" ] && continue
       echo "❌ possible secret in staged file: $f"
       # Print the line NUMBER and a redacted excerpt — never the key itself. A hook that
@@ -39,7 +46,7 @@ for f in $FILES; do
       FOUND=1
     fi
   done
-done
+done < <(git diff --cached -z --name-only --diff-filter=ACM 2>/dev/null)
 
 if [ "$FOUND" = 1 ]; then
   echo ""
