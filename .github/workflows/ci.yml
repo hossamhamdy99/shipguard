@@ -1,0 +1,25 @@
+name: CI
+
+# Runs shipguard's own suite on every push and pull request. Zero dependencies, so there is
+# nothing to install — just Node and the tests. The suite builds real throwaway git repos and
+# runs bash (the secret scanner), so it needs git and bash: both are present on ubuntu-latest.
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false        # report every Node version, not just the first that breaks
+      matrix:
+        node: [18, 20, 22]
+    name: node ${{ matrix.node }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # The exit code decides — the same rule the tool is built on. `node test/all.mjs`
+      # exits non-zero if any suite fails or is unexpectedly skipped.
+      - run: node test/all.mjs
