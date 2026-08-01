@@ -52,6 +52,12 @@ check("malformed `ship!` → unreadable", readVerdict(fm("ship!")), "unreadable"
 check("ship + a malformed second verdict → unreadable",
   readVerdict("---\nverdict: ship\nverdict: shipp\n---\n"), "unreadable");
 
+console.log("\n▸ A trailing `# comment` on a value is honoured (YAML-style), so the docs are copy-safe");
+check("ship with a comment → ship", readVerdict("---\nverdict: ship # approved after fixes\n---"), "ship");
+check("the docs' inline hint copied verbatim → ship", readVerdict("---\nverdict: ship          # or: no-ship\n---"), "ship");
+check("no-ship with a comment → no-ship", readVerdict("---\nverdict: no-ship # found a real bug\n---"), "no-ship");
+check("a `#` with no leading space is part of the value → unreadable", readVerdict("---\nverdict: ship#x\n---"), "unreadable");
+
 console.log("\n▸ Keys and values are case-insensitive and whitespace-forgiving");
 check("upper-case key and value", readVerdict("---\nVERDICT:   NO-SHIP  \n---\n"), "no-ship");
 check("no space after colon", readVerdict("---\nverdict:ship\n---\n"), "ship");

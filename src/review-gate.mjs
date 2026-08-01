@@ -168,7 +168,7 @@ export function reviewGate(config, { cwd = process.cwd() } = {}) {
   lines.push("");
   lines.push("       ---");
   lines.push(`       reviewed-through: ${head.slice(0, 12)}`);
-  lines.push("       verdict: ship        (or: no-ship — reject wins)");
+  lines.push("       verdict: ship        # or: no-ship (reject wins)");
   lines.push("       ---");
   lines.push("");
   lines.push("   ⚠️  That sha must be the commit the reviewer READ. Copy it with");

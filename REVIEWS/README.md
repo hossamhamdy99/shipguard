@@ -5,7 +5,7 @@ top — carrying the commit read and the verdict. Nothing in the body is parsed.
 
     ---
     reviewed-through: <sha>
-    verdict: ship          (or:  no-ship)
+    verdict: ship          # or: no-ship
     ---
 
     <the write-up: any language, any markdown — none of it is read>

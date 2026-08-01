@@ -34,7 +34,8 @@ function frontmatter(body) {
   if (!block) return fields;
   for (const line of block[1].split(/\r?\n/)) {
     const kv = line.match(/^([A-Za-z][A-Za-z0-9_-]*)[ \t]*:[ \t]*(.*?)[ \t]*$/);
-    if (kv) (fields[kv[1].toLowerCase()] ??= []).push(kv[2]);
+    // Honour a trailing YAML `# comment` (e.g. `verdict: ship # approved after fixes`), then trim.
+    if (kv) (fields[kv[1].toLowerCase()] ??= []).push(kv[2].replace(/\s+#.*$/, "").trim());
   }
   return fields;
 }
@@ -69,4 +70,4 @@ export function readReviewedThrough(body) {
 }
 
 /** The review format, quoted verbatim in the gate's own messages. */
-export const REVIEW_FORMAT = "---\nreviewed-through: <sha>\nverdict: ship        (or: no-ship)\n---";
+export const REVIEW_FORMAT = "---\nreviewed-through: <sha>\nverdict: ship        # or: no-ship\n---";
