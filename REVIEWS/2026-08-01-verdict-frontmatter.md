@@ -29,7 +29,7 @@ context to model, because the body is not read.
 
 ## Notes (non-blocking)
 - `REVIEWS/README.md` is correctly ignored (no frontmatter `reviewed-through`).
-- Downstream must add a frontmatter block to each existing review
+- Downstream projects that use shipguard must add a frontmatter block to each existing review
   before adopting this version — done in those projects, not here.
 
 The verdict is declared in the frontmatter above.
