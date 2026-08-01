@@ -23,15 +23,12 @@
 
   "reviewsDir": "REVIEWS",
 
-  "$comment_verdicts": [
-    "Which languages the verdict line may be written in. Defaults to ALL built-in ones,",
-    "deliberately: a reviewer writing in their own language must never silently invalidate",
-    "their own review. That exact bug cost four bypassed deploys in one night.",
-    "Add your own with `extra`: { labels: [...], no: '<regex>', yes: '<regex>' } —",
-    "and add assertions to your test suite, because rejection is matched BEFORE approval",
-    "and a vocabulary whose rejection contains its own approval word will read 'no' as 'yes'."
+  "$comment_verdict": [
+    "The verdict lives in each review file as a marker — <!-- verdict: ship --> or",
+    "<!-- verdict: no-ship -->. It is not configured here and not parsed from prose, so there",
+    "is no language setting: the write-up may be in any language, only the marker is read.",
+    "No marker means the review does not count; if two disagree, no-ship wins."
   ],
-  "verdicts": {},
 
   "$comment_tests": [
     "[name, command, why, options]. `optional: true` means missing prerequisites count as a",

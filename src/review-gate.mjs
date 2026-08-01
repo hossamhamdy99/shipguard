@@ -23,7 +23,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { verdictReader } from "./verdict.mjs";
+import { readVerdict, readReviewedThrough, REVIEW_FORMAT } from "./verdict.mjs";
 
 const git = (...args) =>
   execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
@@ -75,7 +75,6 @@ export function riskOf(file, risky) {
 export function reviewGate(config, { cwd = process.cwd() } = {}) {
   const lines = [];
   const dir = config.reviewsDir ?? "REVIEWS";
-  const read = verdictReader(config.verdicts?.locales, config.verdicts?.extra);
 
   // A repository with no commits yet — `git rev-parse HEAD` throws `fatal: ambiguous
   // argument`. Found on shipguard's own first run: `init` then `check` before the first
@@ -103,16 +102,16 @@ export function reviewGate(config, { cwd = process.cwd() } = {}) {
     if (git("status", "--porcelain", "--", path) !== "") { ignored.push([f, "has uncommitted edits"]); continue; }
 
     const body = readFileSync(join(cwd, path), "utf8");
-    const m = body.match(/reviewed-through:\s*([0-9a-f]{7,40})/i);
-    if (!m) { ignored.push([f, "no `reviewed-through:` marker"]); continue; }
+    const rt = readReviewedThrough(body);
+    if (!rt) { ignored.push([f, "no `reviewed-through: <sha>` in the frontmatter"]); continue; }
 
     let sha;
-    try { sha = git("rev-parse", m[1]); }
-    catch { ignored.push([f, `marker \`${m[1]}\` — git cannot resolve it`]); continue; }
+    try { sha = git("rev-parse", rt); }
+    catch { ignored.push([f, `reviewed-through \`${rt}\` — git cannot resolve it`]); continue; }
 
-    const verdict = read(body);
-    if (verdict === "no-ship") { ignored.push([f, "verdict is DO NOT SHIP — that is the opposite of clearance"]); continue; }
-    if (verdict === "unreadable") { ignored.push([f, "verdict line could not be read — see README for the accepted forms"]); continue; }
+    const verdict = readVerdict(body);
+    if (verdict === "no-ship") { ignored.push([f, "verdict is no-ship — the opposite of clearance"]); continue; }
+    if (verdict === "unreadable") { ignored.push([f, "no readable `verdict:` in the frontmatter — see REVIEWS/README.md"]); continue; }
 
     // Newest wins: is this commit a descendant of the best one so far?
     if (reviewed === null || isAncestor(reviewed, sha)) { reviewed = sha; reviewedIn = f; }
@@ -129,7 +128,9 @@ export function reviewGate(config, { cwd = process.cwd() } = {}) {
   if (reviewed === null) {
     lines.push("❌ review gate: no committed, passing review on file.");
     lines.push("   Risky changes need a critical read by someone who did not write them:");
-    lines.push(`   a committed ${dir}/*.md with \`<!-- reviewed-through: <sha> -->\` and a passing verdict.`);
+    lines.push(`   a committed ${dir}/*.md that opens with the frontmatter block —`);
+    lines.push("");
+    for (const fl of REVIEW_FORMAT.split("\n")) lines.push(`       ${fl}`);
     return { ok: false, reason: "no-review", lines };
   }
 
@@ -165,7 +166,10 @@ export function reviewGate(config, { cwd = process.cwd() } = {}) {
   lines.push("   error, so they do not ship on green checks alone. Save the review as");
   lines.push(`   ${dir}/<name>.md with:`);
   lines.push("");
-  lines.push(`       <!-- reviewed-through: ${head.slice(0, 12)} -->`);
+  lines.push("       ---");
+  lines.push(`       reviewed-through: ${head.slice(0, 12)}`);
+  lines.push("       verdict: ship        (or: no-ship — reject wins)");
+  lines.push("       ---");
   lines.push("");
   lines.push("   ⚠️  That sha must be the commit the reviewer READ. Copy it with");
   lines.push("       `git rev-parse --short=12 HEAD` — do not retype it.");

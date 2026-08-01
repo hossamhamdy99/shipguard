@@ -41,11 +41,12 @@ on shipguard's own code first.
 
 Not aspirational — it is in this repo's own tests:
 
-- `test/verdict.test.mjs` starts with seven **rejections that contain their own approval word**
-  (`ماينشرش` contains `ينشر`; `does not ship` contains `ship`). If the ordering in the parser
-  is ever flipped, a review that concluded *do not ship* is read as clearance. Being too strict
-  costs time; being too lax ships the bug the reviewer found and wrote down. Those are not
-  symmetric.
+- `test/verdict.test.mjs` starts with an **adversarial battery**: every prose shape that ever
+  read as a false approval — an approval line above an unparsed rejection, a rejection with a
+  modifier between the label and the verb, a newline after the colon, a table row, a look-alike
+  character — must resolve to `unreadable` or `no-ship`, never `ship`. The verdict is read from
+  a marker, not from prose, so there is nothing left to trick. Being too strict costs time;
+  being too lax ships the bug the reviewer found and wrote down — and those are not symmetric.
 - `test/review-gate.test.mjs` builds a **real throwaway git repo** rather than mocking, because
   two of the gate's three historical holes were in the interaction with git itself — a review
   file that counted while uncommitted, and a marker git could not resolve being discarded in
@@ -93,28 +94,26 @@ Keep the list short. A gate that always blocks is a gate people learn to bypass.
 
 ### Reviews
 
-A review is a markdown file in `REVIEWS/` containing the commit it read and a verdict:
+A review is a markdown file in `REVIEWS/` that **opens** with a frontmatter block naming the
+commit it read and the verdict; the body below is free-form:
 
 ```markdown
-<!-- reviewed-through: 46c037bc2734 -->
-
-**Verdict: ships.**
+---
+reviewed-through: 46c037bc2734
+verdict: ship
+---
 
 1. `src/money/total.ts:88` — ...
 ```
 
-Copy that sha with `git rev-parse --short=12 <commit>` — never retype it. It names the commit
-the reviewer **read**, not the commit that fixed the findings.
+Copy the sha with `git rev-parse --short=12 <commit>` — never retype it. It names the commit
+the reviewer **read**, not the commit that fixed the findings. `verdict:` is `ship` or `no-ship`.
 
-The verdict may be written in any configured language. English and Arabic ship built in
-(`src/verdict.mjs`), and **both are understood by default** — a reviewer writing in their own
-language must never silently invalidate their own review.
-
-⚠️ To be precise about what is and is not translated: the **verdict vocabulary** is
-multilingual and tested in both languages. shipguard's own **output messages** are English
-only. There were `i18n/*.json` files here that looked like the messages were translatable;
-nothing read them, so they were deleted rather than left to imply a feature that did not
-exist. Adding real message translation is open work.
+Only the frontmatter is read; the body can say anything, in any language, including a fenced
+example of this very block. Frontmatter must be the first thing in the file, so a review cannot
+approve itself by documenting or quoting the format lower down — the exact way an earlier
+prose-parser, and then an inline marker, were fooled. No `verdict:` → `unreadable` and the gate
+refuses; if two conflict, `no-ship` wins.
 
 ### Use
 

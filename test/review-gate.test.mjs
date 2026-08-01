@@ -35,6 +35,9 @@ const commit = (m) => { g("add", "-A"); g("-c", "user.email=t@t", "-c", "user.na
 const gate = () => reviewGate(CONFIG, { cwd: repo });
 const inRepo = (fn) => { const old = process.cwd(); process.chdir(repo); try { return fn(); } finally { process.chdir(old); } };
 
+// A review file: frontmatter (the commit read + the verdict) then a free-form body.
+const review = (sha, verdict, body = "") => `---\nreviewed-through: ${sha}\nverdict: ${verdict}\n---\n${body}`;
+
 try {
   g("init", "-q", "-b", "main");
   write("README.md", "hi");
@@ -55,15 +58,15 @@ try {
 
   console.log("\n▸ An UNCOMMITTED review does not count (hole 1)");
   // The original gate read the working tree, so merely writing the file turned it green —
-  // while that same file said DO NOT SHIP.
-  write("REVIEWS/r1.md", `<!-- reviewed-through: ${base} -->\n\n**Verdict: ships.**\n`);
+  // while that same file's verdict said no-ship.
+  write("REVIEWS/r1.md", review(base, "ship"));
   check("still refuses", inRepo(() => gate().ok), false);
   check("and names the file as not counting",
     inRepo(() => gate().lines.some((l) => l.includes("r1.md") && l.includes("not committed"))), true);
 
   console.log("\n▸ A committed, passing review at HEAD → passes");
   const withReview = commit("add review");
-  write("REVIEWS/r1.md", `<!-- reviewed-through: ${withReview} -->\n\n**Verdict: ships.**\n`);
+  write("REVIEWS/r1.md", review(withReview, "ship"));
   commit("point review at itself");
   // The review now names an ancestor, and nothing risky changed since.
   check("passes", inRepo(() => gate().ok), true);
@@ -78,38 +81,38 @@ try {
 
   console.log("\n▸ A non-risky file changed → passes");
   const at = g("rev-parse", "HEAD");
-  write("REVIEWS/r2.md", `<!-- reviewed-through: ${at} -->\n\n**Verdict: ships.**\n`);
+  write("REVIEWS/r2.md", review(at, "ship"));
   commit("review the money change");
   write("src/ui/button.tsx", "export const B = 1;");
   commit("touch ui");
   check("passes", inRepo(() => gate().ok), true);
   check("reason", inRepo(() => gate().reason), "nothing-risky");
 
-  console.log("\n▸ A DO-NOT-SHIP review is not clearance (hole 2)");
+  console.log("\n▸ A no-ship review is not clearance (hole 2)");
   write("src/money/refund.ts", "export const r = 1;");
   const risky2 = commit("touch money again");
-  write("REVIEWS/r3.md", `<!-- reviewed-through: ${risky2} -->\n\n**Verdict: DO NOT SHIP.**\n\nFound a real problem.\n`);
+  write("REVIEWS/r3.md", review(risky2, "no-ship", "\nFound a real problem.\n"));
   commit("add rejecting review");
   check("refuses", inRepo(() => gate().ok), false);
   check("and says the verdict is the reason it did not count",
-    inRepo(() => gate().lines.some((l) => l.includes("r3.md") && l.includes("DO NOT SHIP"))), true);
+    inRepo(() => gate().lines.some((l) => l.includes("r3.md") && l.includes("no-ship"))), true);
 
-  console.log("\n▸ An unresolvable marker is reported, not swallowed (hole 3)");
-  write("REVIEWS/r4.md", "<!-- reviewed-through: deadbeefdead -->\n\n**Verdict: ships.**\n");
+  console.log("\n▸ An unresolvable sha is reported, not swallowed (hole 3)");
+  write("REVIEWS/r4.md", review("deadbeefdead", "ship"));
   commit("add review with a retyped sha");
   check("names the file and the sha",
     inRepo(() => gate().lines.some((l) => l.includes("r4.md") && l.includes("deadbeefdead"))), true);
 
-  console.log("\n▸ An unreadable verdict is reported (the four-bypass bug)");
-  write("REVIEWS/r5.md", `<!-- reviewed-through: ${risky2} -->\n\nLooks fine to me.\n`);
-  commit("add review with no verdict line");
+  console.log("\n▸ A missing verdict is reported (the four-bypass bug)");
+  write("REVIEWS/r5.md", `---\nreviewed-through: ${risky2}\n---\n\nLooks fine to me.\n`);
+  commit("add review with no verdict");
   check("names it as not counting",
-    inRepo(() => gate().lines.some((l) => l.includes("r5.md") && l.includes("verdict line"))), true);
+    inRepo(() => gate().lines.some((l) => l.includes("r5.md") && l.includes("verdict"))), true);
 
-  console.log("\n▸ An Arabic verdict counts — the bug that motivated the whole package");
-  write("REVIEWS/r6.md", `<!-- reviewed-through: ${g("rev-parse", "HEAD")} -->\n\n**الحكم: ينشر.**\n`);
-  commit("Arabic review");
-  check("passes on an Arabic approval", inRepo(() => gate().ok), true);
+  console.log("\n▸ A committed frontmatter approval at HEAD passes");
+  write("REVIEWS/r6.md", review(g("rev-parse", "HEAD"), "ship"));
+  commit("frontmatter review");
+  check("passes on a frontmatter approval", inRepo(() => gate().ok), true);
 } finally {
   rmSync(repo, { recursive: true, force: true });
 }
