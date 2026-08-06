@@ -113,6 +113,30 @@ try {
   write("REVIEWS/r6.md", review(g("rev-parse", "HEAD"), "ship"));
   commit("frontmatter review");
   check("passes on a frontmatter approval", inRepo(() => gate().ok), true);
+
+  console.log("\n▸ A risky file dirty in the working tree is not covered by any review (hole 4)");
+  // HEAD is fully reviewed (r6 points at HEAD), so the gate is on its ✅ fast path. A risky
+  // change that lives only on disk — never committed — can be named by no review.
+  write("src/money/checkout.ts", "export const total = 424242;");   // modified, tracked
+  check("refuses on an uncommitted edit to a risky file", inRepo(() => gate().ok), false);
+  check("reason is risky-uncommitted", inRepo(() => gate().reason), "risky-uncommitted");
+  check("names the dirty risky file", inRepo(() => gate().lines.some((l) => l.includes("src/money/checkout.ts"))), true);
+  g("checkout", "--", "src/money/checkout.ts");                      // revert
+  check("reverting the edit clears the gate", inRepo(() => gate().ok), true);
+
+  write("src/money/scratch.ts", "export const x = 1;");             // untracked, risky
+  check("refuses on an untracked risky file", inRepo(() => gate().ok), false);
+  check("reason is risky-uncommitted (untracked)", inRepo(() => gate().reason), "risky-uncommitted");
+  rmSync(join(repo, "src/money/scratch.ts"), { force: true });
+
+  write("src/ui/scratch.tsx", "export const Z = 1;");               // untracked, NOT risky
+  check("a dirty non-risky file does not trip hole 4", inRepo(() => gate().ok), true);
+  rmSync(join(repo, "src/ui/scratch.tsx"), { force: true });
+
+  write("src/money/فاتورة.ts", "export const y = 1;");              // untracked risky, non-ASCII name
+  check("an untracked risky file with an Arabic name is seen (quotepath off)", inRepo(() => gate().ok), false);
+  check("reason is risky-uncommitted (non-ASCII)", inRepo(() => gate().reason), "risky-uncommitted");
+  rmSync(join(repo, "src/money/فاتورة.ts"), { force: true });
 } finally {
   rmSync(repo, { recursive: true, force: true });
 }

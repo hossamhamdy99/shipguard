@@ -4,7 +4,7 @@
  * Refuses to deploy when a file on your *risky* list changed without a committed review
  * that (a) names the commit it actually read and (b) carries a passing verdict.
  *
- * ── Three holes, each found the expensive way ────────────────────────────────────
+ * ── Four holes, each found the expensive way ─────────────────────────────────────
  *
  * 1. **A review must be COMMITTED.** The first version read the working tree, and a review
  *    demonstrated the hole by accident: writing the file flipped the gate from red to green
@@ -18,6 +18,13 @@
  *    a marker git could not resolve, which the gate then discarded in silence.
  *    It no longer does: an unresolvable marker is reported loudly, because a review that
  *    does not count is worse than no review — you think you are covered.
+ *
+ * 4. **A risky file DIRTY in the working tree is unreviewed by definition.** Every check
+ *    below compares commits only — HEAD, and diffs between shas. A risky file that is
+ *    modified-but-uncommitted, or untracked, sits in no commit, so no committed review can
+ *    ever name it — yet `reviewed === head` would still say ✅ without once reading the
+ *    working tree. Found the same way as hole 1: green on disk, unreviewed in fact. The gate
+ *    now refuses on any risky path that is dirty on disk, before it trusts any review.
  */
 
 import { execFileSync } from "node:child_process";
@@ -26,7 +33,7 @@ import { join } from "node:path";
 import { readVerdict, readReviewedThrough, REVIEW_FORMAT } from "./verdict.mjs";
 
 const git = (...args) =>
-  execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  execFileSync("git", ["-c", "core.quotepath=false", ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 
 /**
  * Minimal glob: `**` any depth (including none), `*` within one segment, `?` one character.
@@ -84,6 +91,42 @@ export function reviewGate(config, { cwd = process.cwd() } = {}) {
   catch {
     lines.push("· review gate: this repository has no commits yet — nothing to review.");
     return { ok: true, reason: "no-commits", lines };
+  }
+
+  // ── Hole 4: a risky file dirty in the WORKING TREE is unreviewed by definition ─────
+  // A review names a commit; a modified-but-uncommitted or untracked file is in no commit,
+  // so no committed review can ever cover it — yet every ✅ path below reads commits only.
+  // Checked here, before any review is trusted. (quotepath is off so non-ASCII paths match.)
+  {
+    const dirtyRisky = [];
+    const seen = new Set();
+    for (const f of [
+      ...git("diff", "--name-only", "HEAD").split("\n"),
+      ...git("ls-files", "--others", "--exclude-standard").split("\n"),
+    ]) {
+      if (!f || seen.has(f)) continue;
+      seen.add(f);
+      const rule = riskOf(f, config.risky ?? []);
+      if (rule) dirtyRisky.push({ f, rule });
+    }
+    if (dirtyRisky.length) {
+      lines.push(`❌ review gate: ${dirtyRisky.length} risky file(s) changed but not committed —`);
+      lines.push("   a review names a commit, so uncommitted changes can never be covered by one.");
+      lines.push("");
+      const byWhy = new Map();
+      for (const { f, rule } of dirtyRisky) {
+        if (!byWhy.has(rule.why)) byWhy.set(rule.why, []);
+        byWhy.get(rule.why).push(f);
+      }
+      for (const [why, fs] of byWhy) {
+        lines.push(`   ${why}:`);
+        for (const f of fs.slice(0, 6)) lines.push(`     · ${f}`);
+        if (fs.length > 6) lines.push(`     …and ${fs.length - 6} more`);
+      }
+      lines.push("");
+      lines.push("   Commit these and have the commit reviewed before deploying.");
+      return { ok: false, reason: "risky-uncommitted", lines };
+    }
   }
 
   // ── Find the newest commit that a committed, passing review says it covers ──────
